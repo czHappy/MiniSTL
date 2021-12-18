@@ -17,15 +17,15 @@
   - Run main.cpp.
 
 - Or use CMakeLists.txt
-```
-cd build
-cmake ..
-make
-./demo
-```
+  ```
+  cd build
+  cmake ..
+  make
+  ./demo
+  ```
 
 ## Future Work
 - More containers
 - More Algorithms
 - Compared with std::
-- ...# MiniSTL
+- ...
