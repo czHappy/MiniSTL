@@ -13,6 +13,7 @@
 - main: Test stl_vector.
 
 ## Usage
+- Install gtest library.
 - Copy the project into C++ IDE
   - Run main.cpp.
 
@@ -23,7 +24,7 @@
   make
   ./demo
   ```
-
+- Test OK in Mac M1. Big Sur 11.3.1. 
 ## Future Work
 - More containers
 - More Algorithms
