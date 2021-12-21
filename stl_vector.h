@@ -6,49 +6,54 @@
 #include <iostream>
 namespace MiniSTL {
 // use sub_allocator as default allocator
-template <class T, class Alloc = simpleAlloc<T>>
+template <class T, class Alloc = simpleAlloc<T> >
 class vector {
 public:  // alias declarartions
     typedef T value_type;
-    using pointer = value_type *;
-    using iterator = value_type *;  // iterator is raw pointer
-    using const_iterator = const value_type *;
-    using reverse_iterator = __reverse_iterator<iterator>;
-    using const_reverse_iterator = __reverse_iterator<const_iterator>;
-    using reference = value_type &;
-    using const_reference = const value_type &;
-    using size_type = size_t;
-    using difference_type = ptrdiff_t;
+    typedef value_type* pointer;
+    typedef value_type* iterator;  // iterator is raw pointer
+    typedef const value_type * const_iterator;
+    typedef __reverse_iterator<iterator> reverse_iterator;
+    typedef __reverse_iterator<const_iterator> const_reverse_iterator;
+    typedef value_type& reference;
+    typedef const value_type& const_reference;
+    typedef size_t size_type;
+    typedef ptrdiff_t difference_type;
 
 private:  // data member
     // iterator to indicate the vector's memory location
-    iterator start;
-    iterator finish;
-    iterator end_of_storage;
+    iterator start;//首地址
+    iterator finish;//使用的尾地址
+    iterator end_of_storage;//实际分配的内存尾地址
 
 private:  // allocate and construct aux functions
-    using data_allocator = Alloc;
-
+    typedef Alloc data_allocator;
+    // 把n个元素都填充为value
     void fill_initialize(size_type n, const value_type &value) {
         start = allocate_and_fill(n, value);
         finish = start + n;
         end_of_storage = finish;
     }
+    //整型初始化  _true_type初始化
     template <class Integer>
     void initialize_aux(Integer n, Integer val, _true_type) {
         fill_initialize(static_cast<size_type>(n),
                         static_cast<value_type>(val));
     }
+    //非整型初始化 其实就是用迭代器初始化
     template <class InputIterator>
     void initialize_aux(InputIterator first, InputIterator last, _false_type) {
         start = allocate_and_copy(first, last);
         finish = end_of_storage = start + MiniSTL::distance(first, last);
     }
+    
+    //fill_initialize实际就是调用allocate_and_fill 然后记录start和finish
     iterator allocate_and_fill(size_type n, const value_type &value) {
         iterator result = data_allocator::allocate(n);
-        MiniSTL::uninitialized_fill_n(result, n, value);
+        MiniSTL::uninitialized_fill_n(result, n, value);//uninitialized.h 全局函数
         return result;
     }
+    //先分配一块空间，首地址为result然后把[first, last)内容拷贝到分配的空间里去
     template <class InputIterator>
     iterator allocate_and_copy(InputIterator first, InputIterator last) {
         size_type n = MiniSTL::distance(first, last);
@@ -57,8 +62,10 @@ private:  // allocate and construct aux functions
         return result;
     }
     void deallocate() noexcept {
-        if (start) data_allocator::deallocate(start, end_of_storage - start);
+        if (start) //如果有元素
+            data_allocator::deallocate(start, end_of_storage - start);
     }
+    //先析构对象 然后回收内存
     void destroy_and_deallocate() noexcept {
         destroy(start, finish);  // destroy in "construct.h"
         deallocate();
@@ -67,15 +74,20 @@ private:  // allocate and construct aux functions
 public:  // swap
     void swap(vector &) noexcept;
 
+    
 public:  // ctor && dtor
     vector() : start(nullptr), finish(nullptr), end_of_storage(nullptr) {}
     explicit vector(size_type n) { fill_initialize(n, value_type()); }
+    //元素个数+填充值初始化
     vector(size_type n, const value_type &value) { fill_initialize(n, value); }
+    //判定不是整型才调用迭代器初始化
     template <class InputIterator>
     vector(InputIterator first, InputIterator last) {
         initialize_aux(first, last, _is_integer_t<InputIterator>());
     }
+    //初始化列表的形式初始化
     vector(std::initializer_list<T>);
+    //拷贝赋值
     vector(const vector &);
     vector(vector &&) noexcept;
 
@@ -85,12 +97,12 @@ public:  // ctor && dtor
     }
 
 public:  // copy assignment operator
-    vector &operator=(const vector &);
+    vector& operator = (const vector &);
 
 public:  // move assignment
     vector &operator=(vector &&) noexcept;
 
-public:  // getter
+public:  // getter 都声明为const不能修改只能查询
     const_iterator begin() const noexcept { return start; }
     const_iterator end() const noexcept { return finish; }
     const_iterator cbegin() const noexcept { return start; }
@@ -101,12 +113,16 @@ public:  // getter
     const_reverse_iterator crend() const noexcept {
         return const_reverse_iterator(start);
     }
-    // TODO:
-    // have no empty check
-    const_reference front() const noexcept { return *begin(); }
+    // 没有做空判断
+    const_reference front() const noexcept {
+//        if(empty()){
+//            return NULL;
+//        }
+        return *begin();
+    }
     const_reference back() const noexcept { return *(end() - 1); }
-    // TODO:
-    // have no boundary check and don't use proxy
+    
+    // 没有做越界检查
     const_reference operator[](const size_type n) const noexcept {
         return *(start + n);
     }
@@ -131,14 +147,15 @@ public:  // interface for size and capacity
     void resize(size_type, const value_type &);
     void resize(size_type new_size) { resize(new_size, value_type()); }
     void reserve(size_type);
+    
     void shrink_to_fit() noexcept {
         vector temp(*this);
         swap(temp);
     }
 
 public:  // compare operator(member function)
-    bool operator==(const vector &) const noexcept;
-    bool operator!=(const vector &rhs) const noexcept {
+    bool operator == (const vector &) const noexcept;
+    bool operator != (const vector &rhs) const noexcept {
         return !(*this == rhs);
     }
 
@@ -207,12 +224,16 @@ public:  // assign
     void assign(std::initializer_list<value_type> ils) {
         assign(ils.begin(), ils.end());
     }
-    vector &operator=(std::initializer_list<value_type> ils) {
+    vector& operator = (std::initializer_list<value_type> ils) {
         assign(ils);
         return *this;
     }
 };
 
+// 具体实现
+
+// 在指定位置插入一个值
+// 应该先保证这个位置在[start, finish]之间 这里先不检查
 template <class T, class Alloc>
 void vector<T, Alloc>::insert_aux(iterator position, const value_type &value) {
     if (finish != end_of_storage) {  // needn't expand
@@ -224,13 +245,12 @@ void vector<T, Alloc>::insert_aux(iterator position, const value_type &value) {
     } else {  // expand
         const size_type old_size = size();
         const size_type new_size =
-            old_size ? 2 * old_size : 1;  // new_cap = 2 * old_cap
+            old_size ? 2 * old_size : 1;  // 如果原来是0则新的size为1，否则new_cap = 2 * old_cap
         iterator new_start = data_allocator::allocate(new_size);
         iterator new_finish = new_start;
         try {
-            new_finish = MiniSTL::uninitialized_copy(
-                start, position, new_start);  // Copy the first segment
-            construct(new_finish, value);
+            new_finish = MiniSTL::uninitialized_copy(start, position, new_start);  // Copy the first segment
+            construct(new_finish, value);//插入值
             ++new_finish;
             new_finish = MiniSTL::uninitialized_copy(
                 position, finish, new_finish);  // Copy the second segment
@@ -240,13 +260,14 @@ void vector<T, Alloc>::insert_aux(iterator position, const value_type &value) {
             data_allocator::deallocate(new_start, new_size);
             throw;
         }
-        destroy_and_deallocate();
-        start = new_start;
+        destroy_and_deallocate(); //原本的vector回收
+        start = new_start; //通过设置三个重要指针，新的空间被指定
         finish = new_finish;
         end_of_storage = new_start + new_size;
     }
 }
 
+// 对InputIterator的range_insert 调用的是insert(pos, *first);
 template <class T, class Alloc>
 template <class InputIterator>
 void vector<T, Alloc>::range_insert(iterator pos, InputIterator first,
@@ -256,7 +277,7 @@ void vector<T, Alloc>::range_insert(iterator pos, InputIterator first,
         ++pos;
     }
 }
-
+// 对ForwardIterator的range_insert
 template <class T, class Alloc>
 template <class ForwardIterator>
 void vector<T, Alloc>::range_insert(iterator position, ForwardIterator first,
@@ -306,91 +327,7 @@ void vector<T, Alloc>::range_insert(iterator position, ForwardIterator first,
     }
 }
 
-template <class T, class Alloc>
-inline void vector<T, Alloc>::swap(vector &rhs) noexcept {
-    MiniSTL::swap(start, rhs.start);
-    MiniSTL::swap(finish, rhs.finish);
-    MiniSTL::swap(end_of_storage, rhs.end_of_storage);
-}
-
-template <class T, class Alloc>
-inline vector<T, Alloc>::vector(vector &&rhs) noexcept {
-    start = rhs.start;
-    finish = rhs.finish;
-    end_of_storage = rhs.end_of_storage;
-    rhs.start = rhs.finish = rhs.end_of_storage = nullptr;
-}
-
-template <class T, class Alloc>
-inline vector<T, Alloc> &vector<T, Alloc>::operator=(const vector &rhs) {
-    vector temp(rhs);
-    swap(temp);
-    return *this;
-}
-
-template <class T, class Alloc>
-inline vector<T, Alloc> &vector<T, Alloc>::operator=(vector &&rhs) noexcept {
-    if (this != &rhs) {
-        destroy_and_deallocate();
-        start = rhs.start;
-        finish = rhs.finish;
-        end_of_storage = rhs.end_of_storage;
-        rhs.start = rhs.finish = rhs.end_of_storage = nullptr;
-    }
-    return *this;
-}
-
-template <class T, class Alloc>
-inline void vector<T, Alloc>::resize(size_type new_size,
-                                     const value_type &value) {
-    if (new_size < size())
-        erase(begin() + new_size, end());
-    else
-        fill_insert(end(), new_size - size(), value);
-}
-
-template <class T, class Alloc>
-inline void vector<T, Alloc>::reserve(size_type new_capacity) {
-    if (new_capacity <= capacity()) return;
-    T *new_start = data_allocator::allocate(new_capacity);
-    T *new_finish = MiniSTL::uninitialized_copy(start, finish, new_start);
-    destroy_and_deallocate();
-    start = new_start;
-    finish = new_finish;
-    end_of_storage = start + new_capacity;
-}
-
-template <class T, class Alloc>
-bool vector<T, Alloc>::operator==(const vector &rhs) const noexcept {
-    if (size() != rhs.size()) {
-        return false;
-    } else {
-        iterator ptr1 = start;
-        iterator ptr2 = rhs.start;
-        for (; ptr1 != finish && ptr2 != rhs.finish; ++ptr1, ++ptr2)
-            if (*ptr1 != *ptr2) return false;
-        return true;
-    }
-}
-
-template <class T, class Alloc>
-inline void vector<T, Alloc>::push_back(const value_type &value) {
-    if (finish != end_of_storage) {
-        construct(finish, value);
-        ++finish;
-    } else
-        insert_aux(end(), value);
-}
-
-template <class T, class Alloc>
-inline typename vector<T, Alloc>::iterator vector<T, Alloc>::erase(
-    iterator first, iterator last) {
-    iterator i = MiniSTL::copy(last, finish, first);
-    destroy(i, finish);
-    finish -= (last - first);
-    return first;
-}
-
+// 书上的insert
 template <class T, class Alloc>
 void vector<T, Alloc>::fill_insert(iterator position, size_type n,
                                    const value_type &value) {
@@ -437,13 +374,13 @@ void vector<T, Alloc>::fill_insert(iterator position, size_type n,
         }
     }
 }
-
+// 指定位置插个默认值
 template <class T, class Alloc>
 inline typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(
     iterator position) {
-    return insert(position, value_type());
+    return insert(position, value_type());//insert默认值
 }
-
+// 指定位置插入指定值
 template <class T, class Alloc>
 inline typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(
     iterator position, const value_type &value) {
@@ -456,6 +393,69 @@ inline typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(
     return begin() + n;
 }
 
+// push_back函数 就是在最后面新插入一个
+template <class T, class Alloc>
+inline void vector<T, Alloc>::push_back(const value_type &value) {
+    if (finish != end_of_storage) {
+        construct(finish, value);
+        ++finish;
+    } else
+        insert_aux(end(), value);
+}
+
+
+//swap函数实际上就是换了迭代器 指针
+template <class T, class Alloc>
+inline void vector<T, Alloc>::swap(vector &rhs) noexcept {
+    MiniSTL::swap(start, rhs.start);
+    MiniSTL::swap(finish, rhs.finish);
+    MiniSTL::swap(end_of_storage, rhs.end_of_storage);
+}
+template <class T, class Alloc>
+inline void swap(const vector<T, Alloc> &lhs, const vector<T, Alloc> &rhs) {
+    lhs.swap(rhs);
+}
+
+
+
+//
+
+// 重新调整大小
+template <class T, class Alloc>
+inline void vector<T, Alloc>::resize(size_type new_size,
+                                     const value_type &value) {
+    if (new_size < size())
+        erase(begin() + new_size, end());
+    else
+        fill_insert(end(), new_size - size(), value);
+}
+
+// 重新分配空间 如果新空间不会更大就不处理 否则就新开辟一块大空间并把原来的内容copy进去
+template <class T, class Alloc>
+inline void vector<T, Alloc>::reserve(size_type new_capacity) {
+    if (new_capacity <= capacity()) return;
+    T *new_start = data_allocator::allocate(new_capacity);
+    T *new_finish = MiniSTL::uninitialized_copy(start, finish, new_start);
+    destroy_and_deallocate();
+    start = new_start;
+    finish = new_finish;
+    end_of_storage = start + new_capacity;
+}
+
+
+
+// erase掉一个区间 相当于把后面的一段元素copy到前面来实现覆盖
+template <class T, class Alloc>
+inline typename vector<T, Alloc>::iterator vector<T, Alloc>::erase(
+    iterator first, iterator last) {
+    iterator i = MiniSTL::copy(last, finish, first);
+    destroy(i, finish);
+    finish -= (last - first);
+    return first;
+}
+
+
+// assign操作
 template <class T, class Alloc>
 void vector<T, Alloc>::fill_assign(size_type n, const value_type &val) {
     if (n > capacity()) {
@@ -502,22 +502,64 @@ void vector<T, Alloc>::assign_aux(ForwardIterator first, ForwardIterator last,
     }
 }
 
+// 构造函数
+//迭代器构造 复制
 template <class T, class Alloc>
 inline vector<T, Alloc>::vector(const vector &rhs) {
     start = allocate_and_copy(rhs.begin(), rhs.end());
     finish = end_of_storage = start + rhs.size();
 }
-
+// 列表构造
 template <class T, class Alloc>
 inline vector<T, Alloc>::vector(std::initializer_list<T> il) {
     start = allocate_and_copy(il.begin(), il.end());
     finish = end_of_storage = start + il.size();
 }
+template <class T, class Alloc>
+inline vector<T, Alloc>::vector(vector &&rhs) noexcept {
+    start = rhs.start;
+    finish = rhs.finish;
+    end_of_storage = rhs.end_of_storage;
+    rhs.start = rhs.finish = rhs.end_of_storage = nullptr;
+}
+
+//操作符重载
+template <class T, class Alloc>
+inline vector<T, Alloc>& vector<T, Alloc>::operator = (const vector &rhs) {
+    vector temp(rhs);
+    swap(temp);
+    return *this;
+}
 
 template <class T, class Alloc>
-inline bool operator==(const vector<T, Alloc> &lhs,
+inline vector<T, Alloc>& vector<T, Alloc>::operator = (vector &&rhs) noexcept {
+    if (this != &rhs) {
+        destroy_and_deallocate();
+        start = rhs.start;
+        finish = rhs.finish;
+        end_of_storage = rhs.end_of_storage;
+        rhs.start = rhs.finish = rhs.end_of_storage = nullptr;
+    }
+    return *this;
+}
+
+template <class T, class Alloc>
+bool vector<T, Alloc>::operator==(const vector &rhs) const noexcept {
+    if (size() != rhs.size()) {
+        return false;
+    } else {
+        iterator ptr1 = start;
+        iterator ptr2 = rhs.start;
+        for (; ptr1 != finish && ptr2 != rhs.finish; ++ptr1, ++ptr2)
+            if (*ptr1 != *ptr2) return false;
+        return true;
+    }
+}
+
+template <class T, class Alloc>
+inline bool operator == (const vector<T, Alloc> &lhs,
                        const vector<T, Alloc> &rhs) {
-    return lhs.operator==(rhs);
+    return lhs.operator == (rhs);
 }
 
 template <class T, class Alloc>
@@ -526,30 +568,28 @@ inline bool operator!=(const vector<T, Alloc> &lhs,
     return !(lhs == rhs);
 }
 
+// 小于号重载 实际上是字典序列比较
 template <class T>
-inline bool operator<(const vector<T> &lhs, const vector<T> &rhs) {
+inline bool operator < (const vector<T> &lhs, const vector<T> &rhs) {
     return MiniSTL::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(),
                                             rhs.end());  // in stl_algobase.h
 }
 
 template <class T>
-inline bool operator>(const vector<T> &lhs, const vector<T> &rhs) {
+inline bool operator > (const vector<T> &lhs, const vector<T> &rhs) {
     return rhs < lhs;
 }
 
 template <class T>
-inline bool operator<=(const vector<T> &lhs, const vector<T> &rhs) {
+inline bool operator <= (const vector<T> &lhs, const vector<T> &rhs) {
     return !(rhs < lhs);
 }
 
 template <class T>
-inline bool operator>=(const vector<T> &lhs, const vector<T> &rhs) {
+inline bool operator >= (const vector<T> &lhs, const vector<T> &rhs) {
     return !(lhs < rhs);
 }
 
-template <class T, class Alloc>
-inline void swap(const vector<T, Alloc> &lhs, const vector<T, Alloc> &rhs) {
-    lhs.swap(rhs);
-}
+
 
 }  // namespace MiniSTL

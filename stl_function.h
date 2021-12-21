@@ -111,7 +111,7 @@ struct logical_not : public unary_function<T, bool> {
 // 只将参数原封不动地返回，之所以有这般设计是为了增加间接性
 template <class T>
 struct identity : public unary_function<T, T> {
-    const T &operator()(const T &x) const { return x; }
+    const T& operator()(const T& x) const { return x; }
 };
 
 template <class Pair>

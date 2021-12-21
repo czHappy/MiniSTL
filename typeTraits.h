@@ -2,18 +2,7 @@
 
 namespace MiniSTL {
 
-namespace {
-template <bool, class Ta, class Tb>
-struct IfThenElse;
-template <class Ta, class Tb>
-struct IfThenElse<true, Ta, Tb> {
-    using result = Ta;
-};
-template <class Ta, class Tb>
-struct IfThenElse<false, Ta, Tb> {
-    using result = Tb;
-};
-}  // namespace
+
 
 struct _true_type {};
 struct _false_type {};
@@ -255,6 +244,27 @@ struct _is_integer {
 template <class T>
 using _is_integer_t = typename _is_integer<T>::_integral;
 
+// vector构造函数（n,value） (_InputIterator __first, _InputIterator __last) 有两种语义
+// 需要区分开来方便调用 如果判定参数类型为整型调用第一种 否则调用第二种
+//语义一：指定元素数量和初始值，构造vector
+//语义二：指定起始iterator和终止iterator, 构造vector
+
+//以下均视为integer 整型
+//bool
+//char
+//signed char
+//unsigned char
+//wchar_t
+//short
+//unsigned short
+//int
+//unsigned int
+//long
+//unsigned long
+//long long
+//unsigned long long
+
+
 template <>
 struct _is_integer<bool> {
     using _integral = _true_type;
@@ -325,13 +335,13 @@ struct _is_integer<unsigned long long> {
 
 // Summary
 /*
-1. typeTraits.h 文件实际定义了class T中的一些重要信息：
+1. typeTraits.h 文件就是定义了一些原生类型的4种平凡信息和POD类型信息
   has_trivial_default_constructor ;
   has_trivial_copy_constructor ;
   has_trivial_assignment_operator ;
   has_trivial_destructor ;
   is_POD_type ;
  用_true_type或者_false_type区分
-
- 2. 对一些常见基本数据类型做了偏特化
+ 
+ 2. 默认自定义类型都是_false_type，原生类型都是_true_type
 */

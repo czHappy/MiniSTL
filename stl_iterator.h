@@ -16,22 +16,21 @@ struct random_access_iterator_tag : public bidirectional_iterator_tag {};
 template <class Category, class T, class Distance = ptrdiff_t,
           class Pointer = T *, class Reference = T &>
 struct iterator {
-    using iterator_category = Category;
-    using value_type = T;
-    using difference_type = Distance;
-    using pointer = Pointer;
-    using reference = Reference;
+    typedef Category iterator_category  ;
+    typedef T value_type ;
+    typedef Distance difference_type  ;
+    typedef Pointer pointer;
+    typedef Reference reference;
 };
 
 // traits 展现Iterator所有特性
-//之所以不直接使用别名模板完全替代是因为存在偏特化版本，（似乎别名模板无法偏特化）
 template <class Iterator>
 struct iterator_traits {
-    using iterator_category = typename Iterator::iterator_category;
-    using value_type = typename Iterator::value_type;
-    using difference_type = typename Iterator::difference_type;
-    using pointer = typename Iterator::pointer;
-    using reference = typename Iterator::reference;
+    typedef typename Iterator::iterator_category iterator_category;
+    typedef typename Iterator::value_type value_type;
+    typedef typename Iterator::difference_type difference_type;
+    typedef typename Iterator::pointer pointer;
+    typedef typename Iterator::reference reference;
 };
 
 //针对raw pointer设计的偏特化版本
@@ -54,7 +53,12 @@ struct iterator_traits<const T *> {
     using reference = const T &;
 };
 
-//以下为模仿C++14 type_traits_t而设定的别名模板
+//书上这里写了value_type(const Iterator& )函数 返回的是value_type
+// 感觉也没什么用 就不写了
+
+
+
+//以下是别名 省的写好长的类型名
 template <class Iterator>
 using iterator_category_t =
     typename iterator_traits<Iterator>::iterator_category;
@@ -80,7 +84,7 @@ inline difference_type_t<InputIterator> __distance(InputIterator first,
     while (first != last) ++first, ++n;
     return n;
 }
-
+// 随机迭代器 可以直接减求距离
 template <class InputIterator>
 inline difference_type_t<InputIterator> __distance(InputIterator first,
                                                    InputIterator last,
@@ -88,6 +92,7 @@ inline difference_type_t<InputIterator> __distance(InputIterator first,
     return last - first;
 }
 
+// 利用函数重载 编译期就知道该调用哪个具体函数 根据tag
 template <class InputIterator>
 inline difference_type_t<InputIterator> distance(InputIterator first,
                                                  InputIterator last) {
@@ -121,7 +126,9 @@ inline void advance(InputIterator &i, Distance n) {
 }
 
 //以下为三种迭代器适配器
-// insert,reverse,stream
+// insert
+//reverse
+// stream
 
 // insert:back_insert,fornt_insert,insert
 template <class Container>

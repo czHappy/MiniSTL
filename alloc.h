@@ -250,6 +250,7 @@ void *__default_alloc::allocate(size_t n) {
 
 void __default_alloc::deallocate(void *p, size_t n) {
     // p不可为nullptr
+    // 如果是大于__MAX_BYTES交给一级回收器回收 因为是它分配的
     if (n > static_cast<size_t>(__MAX_BYTES))
         malloc_alloc::deallocate(p, n);
     else {

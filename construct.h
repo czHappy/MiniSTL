@@ -5,6 +5,7 @@
 
 namespace MiniSTL {
 
+// 这里construct是用placement new，实际上是因为空间已经分配好了，只要在这个首地址上构造就行了
 template <class T1, class T2>
 inline void construct(T1 *p, T2 value) {
     new (p) T1(value);
