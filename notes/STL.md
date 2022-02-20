@@ -1,4 +1,5 @@
 # STL
+[TOC]
 ## 概览
 ###  STL六大组件
 - 容器container: 各种数据结构如vector list等
@@ -101,6 +102,8 @@
     - 函数模板的参数推导机制 （只能推导函数的参数类型，没办法推导返回值类型）
     - 声明内嵌类型：在类中声明一个类型，函数返回值使用类中的某一个类型声明 （并不是所有的迭代器类型都是class type, 原生指针就不是，但是原生指针可以作为迭代器啊，比如int*是int类型的迭代器，value_type是int。现在给你一个迭代器p,它是int*的，你现在拿到的是p，不知道它的类型，你能返回它的value_type吗？任何原生指针都做不到的。）
     - 更全面的解法：traits 萃取机 + 模板偏特化
+
+### traits 萃取机
 - 萃取机应该提供的5种类型
   - value_type
   - difference_type
@@ -422,3 +425,109 @@ private:  // interface about allocate/deallocate litsNode
 将这64个槽从低到高依次合并，得到最终的结果.
 
   ![](img/11.png)
+
+
+## deque
+### 基本定义
+- 双端队列
+- 支持O(1)地对首尾进行插入和删除操作，并且可以像数组一样随机访问，相当于vector的扩展
+- 逻辑上看起来像是一段连续的数组
+
+### 基本结构
+![](img/12.png)
+- map区
+  - 又称作中控器，是一段连续的内存，由map指针指向其首地址，首尾都可以扩展内存。
+  - 首尾由两个迭代器分别是start和finish，这两个迭代器分别指向map区第一个有效指针和最后一个有效指针，处于[start, finish]之外的是还没有分配的内存，是预留区。
+
+- 缓冲区
+  - 数据真正存放的地方。每一个缓冲区的首地址由中控区的指针指向。
+  - 缓冲区也是一段固定长度的连续内存块。
+  - 对缓冲区的访问是通过迭代器实现的。
+
+### deque迭代器
+![](img/13.png)
+- deque是分段连续空间，迭代器的任务是维持其整体连续的假象。
+- cur域：指向该段缓冲区正在访问的结点。T*
+- first域：指向该段缓冲区的首结点T*
+- last域：指向该段缓冲区的最后一个节点（的下一个节点）T*。注意，满足[first, last)的标准左闭右开性质
+- node域：指向该缓冲区所依附的中控器的指针T**。
+- 核心函数
+  - set_node(newnode)让node域指向newnode处，并修改first和last，用于跨缓冲区时的修改
+  - 重载运算+=：随机访问的实现，前进或者后退n步。必须要分在同一个缓冲区和不同缓冲两种情况考虑。依附+=运算可以实现+,-运算。
+
+### deque数据结构
+- 中控区指针：map_pointer，指向中控区的首地址
+- start迭代器：指向第一个有效缓冲区，由begin函数返回
+  - cur域：指向第一个有效缓冲区的第一个元素
+  - first域：指向第一个有效缓冲区的第一个元素
+  - last域：指向第一个有效缓冲区的最后一个元素（的下一个地址）
+  - node：指向中控区的第一个有效元素
+
+- finish迭代器：指向最后一个有效缓冲区，由end函数返回（个人感觉end函数应该返回finish的下一个迭代器，但是这里确实是返回finish迭代器）
+  - cur域：指向最后一个有效缓冲区的最后一个有效元素
+  - first域：指向最后一个有效缓冲区的第一个元素
+  - last域：指向最后一个有效缓冲区的最后一个元素（的下一个地址）
+  - node：指向中控区的最后一个有效元素
+
+### deque内存管理
+- 由于有两种容器，一个中控区，一个数据缓冲区，所以定义了两种分配器
+  - typedef simple_alloc<T*, Alloc> map_allocator;
+  - typedef simple_alloc<T, Alloc> data_allocator;
+
+- 前插/后插可能会导致开辟新的缓冲区，并在中控区的头/尾插入新的节点，从而可能引发中控区的扩容（开辟更大空间-拷贝-销毁原来的）
+- pop_front/pop_back可能会导致缓冲区被销毁，并且修改中控区的头/尾节点。
+
+### insert函数
+- 非常耗时的一个函数，除非在首尾插入，在中间插入并不是设计该容器的初衷。
+- 虽然段间不连续，但是迭代器很好地屏蔽了不连续的现象，对迭代器进行++/--操作就像是连续的一样。所以insert函数中的段平移，可以很好地利用copy算法。copy函数只需要知道标定区间的首尾迭代器，并采用迭代器的移动进行拷贝，这样数据的平移就非常好实现了。
+
+
+## stack
+### 配接器模式
+- 又称为适配器模式。对target进行处理，需要用到adaptee服务,但是adaptee提供的接口target不能直接使用，则对target进行进一步的封装得到adapter（继承），并持有adaptee的指针，这样对target进行处理的时候只需要对adapter进行处理，并且可以保持接口不变。
+- stack想获得deque的服务，可以持有对deque的指针。或者直接干脆持有一个deque的私有对象，然后提供若干个针对于stack的公共接口，只不过这些接口实际上是将事情推给了deque对象。
+### 迭代器
+- stack没有迭代器
+
+### Sequence
+- 初始化stack时，需要指定一个底层容器，这个容器可以是deque,也可以是list
+- 因此stack是deque或者list的配接器
+
+```c++
+template <class T,class Sequence = deque<T>>
+class stack{
+  ...typedef...
+    protected:
+        Sequence c;
+    public:
+        bool empty() const{return c.empty()};
+        size_type size()const{return c.size();}
+        reference top(){return c.back();}
+        void push(const value_type& x){c.push_back();}
+        void pop(){c.pop_back();}
+        ...
+}
+```
+
+## queue
+- 和stack一样，不再赘述
+
+```c++
+template <class T,class Sequence = deque<T>>
+class queue{
+  ...typedef...
+    protected:
+        Sequence c;
+    public:
+        bool empty() const{return c.empty();}
+        size_type size()const{return c.size();}
+        reference front(){return c.front();}
+        void push(const value_type& x){c.push_back();}
+        void pop(){c.pop_front();}
+        ...
+}
+
+```
+
+
+## heap

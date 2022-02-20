@@ -38,7 +38,7 @@ T *simpleAlloc<T, Alloc>::allocate(size_t n) {
     if (n == 0) return 0;
     return reinterpret_cast<T *>(Alloc::allocate(sizeof(T) * n));
 }
-
+// deallocate和allocate都是调用了分配器所定义的内存管理方法
 template <class T, class Alloc>
 void simpleAlloc<T, Alloc>::deallocate(T *ptr) {
     Alloc::deallocate(reinterpret_cast<void *>(ptr), sizeof(T));
@@ -59,7 +59,7 @@ template <class T, class Alloc>
 void simpleAlloc<T, Alloc>::construct(T *ptr, const T &value) {
     new (ptr) T(value);
 }
-
+//destroy是直接调用了指针的析构 与deallocate不同
 template <class T, class Alloc>
 void simpleAlloc<T, Alloc>::destroy(T *ptr) {
     ptr->~T();

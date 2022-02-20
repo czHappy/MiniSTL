@@ -525,14 +525,14 @@ inline vector<T, Alloc>::vector(vector &&rhs) noexcept {
 
 //操作符重载
 template <class T, class Alloc>
-inline vector<T, Alloc>& vector<T, Alloc>::operator = (const vector &rhs) {
+inline vector<T, Alloc>& vector<T, Alloc>::operator = (const vector<T, Alloc> &rhs) {
     vector temp(rhs);
     swap(temp);
     return *this;
 }
 
 template <class T, class Alloc>
-inline vector<T, Alloc>& vector<T, Alloc>::operator = (vector &&rhs) noexcept {
+inline vector<T, Alloc>& vector<T, Alloc>::operator = (vector<T, Alloc> &&rhs) noexcept {
     if (this != &rhs) {
         destroy_and_deallocate();
         start = rhs.start;

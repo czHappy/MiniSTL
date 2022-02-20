@@ -14,43 +14,49 @@ namespace MiniSTL {
 template <class T, class Alloc = simpleAlloc<T>>
 class list {
 public:  // alias declarations
-    using value_type = T;
-    using pointer = value_type *;
-    using const_pointer = const value_type *;
-    using reference = value_type &;
-    using const_reference = const value_type &;
-    using size_type = size_t;
-    using difference_type = ptrdiff_t;
+    typedef T value_type;
+    typedef T* pointer ;
+    typedef const T* const_pointer ;
+    typedef T& reference;
+    typedef const T& const_reference;
+    typedef size_t size_type;
+    typedef ptrdiff_t difference_type;
 
-    using iterator = __list_iterator<T>;
-    using const_iterator = __list_const_iterator<T>;
-    using reverse_iterator = MiniSTL::__reverse_iterator<iterator>;
-    using const_reverse_iterator = MiniSTL::__reverse_iterator<const_iterator>;
+    typedef __list_iterator<T> iterator;
+    typedef __list_const_iterator<T> const_iterator ;
+    typedef MiniSTL::__reverse_iterator<iterator> reverse_iterator;
+    typedef MiniSTL::__reverse_iterator<const_iterator> const_reverse_iterator;
 
 private:  // interface about allocate/deallocate litsNode
-    using list_node = __list_node<T>;
-    using list_node_allocator = simpleAlloc<list_node>;
-
-    list_node *get_node() { return list_node_allocator::allocate(); }
+    typedef __list_node<T> list_node;
+    typedef simpleAlloc<list_node> list_node_allocator;
+    typedef list_node* link_type;
+    // 获取一个节点 分配内存
+    link_type get_node() { return list_node_allocator::allocate(); }
+    // 销毁一个节点
     void put_node(list_node *p) { list_node_allocator::deallocate(p); }
+    
+    // 使用值创建一个节点
     list_node *create_node(const value_type &);
+    // 销毁一个节点
     void destroy_node(list_node *p) {
-        destroy(&p->data);
-        put_node(p);
+        destroy(&p->data); //先析构数据域 由分配器调用析构函数
+        put_node(p); //再把节点自己的内存还给分配器管理
     }
 
 private:  // only data member(tail)
-    list_node *node;
+    link_type node; //只需要一个指针就能完整表示整个环状双向链表
 
 private:  // aux_interface
-    // 配置一个节点空间 头尾都指向自己
+    // 配置一个节点空间 头尾都指向自己 也就是链表的初始化
     void empety_initialized();
-    // Move [first, last) before pos
+    
+    // 核心函数 迁移 [first, last)的节点到position之后 然后两个链表都要链接起来 P139
     void transfer(iterator position, iterator first, iterator last);
 
 public:  // ctor && dtor
-    list() { empety_initialized(); }
-    explicit list(size_type, const value_type &value = value_type());
+    list() { empety_initialized(); } //默认初始化为空链表
+    explicit list(size_type, const value_type& value = value_type());
     // don't need any dispatching tricks here, because insert does all of that
     // anyway
     template <class InputIterator>
@@ -71,12 +77,19 @@ public:  // swap
     void swap(list &rhs) noexcept { MiniSTL::swap(node, rhs.node); }
 
 public:  // copy operation
-    list(const list &);
-    list& operator = (const list &) noexcept;
+    list(const list &);//拷贝构造
+    list& operator = (const list &) noexcept; //拷贝赋值
 
 private:  // aux interface for assign
+    // 从begin处开始 把n个节点的值设置为val
+    // 如果n大于列表长度则再在后面新插入一些节点
+    // 如果n小于列表长度则后面未赋值的结点全部擦除
     void fill_assign(size_type, const value_type &);
     
+    //dispatch总有两种参数
+    //n,val，在起始处赋值n个节点为val
+    //[first, last) 在这段区间内赋值
+    // 由于迭代器指针本身也是整数无法区分，所以额外加一个参数_true_type/_false_type
     template <class Integer>
     void assign_dispatch(Integer n, Integer val, _true_type) {
         fill_assign(static_cast<size_type>(n), static_cast<value_type>(val));
@@ -93,17 +106,18 @@ public:  // assignment
     void assign(InputIterator first, InputIterator last) {
         assign_dispatch(first, last, _is_integer_t<InputIterator>());
     }
-    list &operator=(std::initializer_list<T> ils) {
+    list& operator = (std::initializer_list<T> ils) {
         assign(ils.begin(), ils.end());
         return *this;
     }
 
 public:  // move operation
-    list(list &&rhs) noexcept {
-        empety_initialized();
-        MiniSTL::swap(node, rhs.node);
+    list(list &&rhs) noexcept { //移动构造
+        empety_initialized(); //初始化
+        MiniSTL::swap(node, rhs.node); //交换右值引用的node域，相当于把它的整个链表都拿过来了
+        // 右值引用的node域变成只有一个节点的链表 实际上相当于被掏空
     }
-    list& operator = (list &&rhs) noexcept {
+    list& operator = (list &&rhs) noexcept { //移动赋值
         clear();
         swap(rhs);
         return *this;
@@ -114,7 +128,7 @@ public:  // getter
     size_type size() const noexcept {
         return MiniSTL::distance(cbegin(), cend());
     }
-    // begin被指定成当前节点的next end是自己
+    // begin被指定成当前节点的next end是自己 自己这个节点是不用的
     // 因为可以把链表想象成一个环 这样遍历的时候是可以全部遍历到的
     const_iterator begin() const noexcept { return const_iterator(node->next); }
     const_iterator end() const noexcept { return const_iterator(node); }
@@ -144,6 +158,7 @@ public:  // resize
 
 private:  // aux interface for insert
     void fill_insert(iterator, size_type, const value_type &);
+    
     template <class Integer>
     void insert_dispatch(iterator pos, Integer n, Integer val, _true_type) {
         fill_insert(pos, static_cast<size_type>(n),
@@ -153,8 +168,11 @@ private:  // aux interface for insert
     void insert_dispatch(iterator, InputIterator, InputIterator, _false_type);
 
 public:  // insert
+    // 在pos处插入一个默认值
     iterator insert(iterator pos) { return insert(pos, value_type()); }
+    // 在pos处插入一个指定值
     iterator insert(iterator, const value_type &);
+    // 在pos处插入 [first, last)之间的值
     template <class InputIterator>
     void insert(iterator pos, InputIterator first, InputIterator last) {
         insert_dispatch(pos, first, last, _is_integer_t<InputIterator>());
@@ -166,49 +184,51 @@ public:  // erase
     void clear();
 
 public:  // push && pop
-    void push_front(const T &value) { insert(begin(), value); }
-    void push_back(const T &value) { insert(end(), value); }
-    void pop_fornt() { erase(begin()); }
-    void pop_back() {
+    void push_front(const T &value) { insert(begin(), value); } //头插
+    void push_back(const T &value) { insert(end(), value); } //尾插
+    void pop_fornt() { erase(begin()); } // 去头
+    void pop_back() { //去尾
         iterator temp = end();
         erase(--temp);
     }
 
 public:  // other interface
-    void unique();
-    void splice(iterator pos, list &rhs) {
+    void unique(); //移除连续而相同的元素，只保留一个
+    void splice(iterator pos, list &rhs) {  //将rhs接到pos之前
         if (!rhs.empty()) transfer(pos, rhs.begin(), rhs.end());
     }
     void splice(iterator, list &, iterator);
     void splice(iterator pos, list &, iterator first, iterator last) {
         if (first != last) transfer(pos, first, last);
     }
-    void merge(list &);
-    void reverse();
-    void sort();
-    void remove(const T &);
+    void merge(list &); //有序链表合并
+    void reverse(); //逆转链表
+    void sort(); // 排序
+    void remove(const T &); //erase指定值的结点
 };
 
+// 按照值创建一个list_node并返回其指针
 template <class T, class Alloc>
-inline typename list<T, Alloc>::list_node *list<T, Alloc>::create_node(
-    const T &value) {
+inline typename list<T, Alloc>::list_node* list<T, Alloc>::create_node(const T &value) {
     list_node *p = get_node();
     try {
-        construct(&p->data, value);
+        construct(&p->data, value); //调用的construct.h文件里的construct
     } catch (std::exception) {
         put_node(p);
         throw;
     }
     return p;
 }
-
+// 空链表只有一个节点 其next和prev都指向自己
 template <class T, class Alloc>
 inline void list<T, Alloc>::empety_initialized() {
     node = get_node();
     node->next = node;
     node->prev = node;
 }
-
+// 从begin处开始 把n个节点的值设置为val
+// 如果n大于列表长度则再在后面新插入一些节点
+// 如果n小于列表长度则后面未赋值的结点全部擦除
 template <class T, class Alloc>
 void list<T, Alloc>::fill_assign(size_type n, const value_type &val) {
     iterator i = begin();
@@ -231,7 +251,7 @@ void list<T, Alloc>::assign_dispatch(InputIterator first, InputIterator last,
     else
         insert(finish, first, last);
 }
-
+//resize
 template <class T, class Alloc>
 inline void list<T, Alloc>::resize(size_type new_size, const value_type &val) {
     iterator cur = begin();
@@ -243,11 +263,12 @@ inline void list<T, Alloc>::resize(size_type new_size, const value_type &val) {
     else  // i == end()
         fill_insert(end(), new_size - len, val);
 }
-
+// 在position前一个位置插入一个结点 并且要与前后链接起来
+// 返回的是指向新插入节点的迭代器
 template <class T, class Alloc>
 inline typename list<T, Alloc>::iterator list<T, Alloc>::insert(
     iterator position, const value_type &val) {
-    list_node *temp = create_node(val);
+    link_type temp = create_node(val);
     temp->next = position.node;
     temp->prev = position.node->prev;
     position.node->prev->next = temp;
@@ -255,12 +276,14 @@ inline typename list<T, Alloc>::iterator list<T, Alloc>::insert(
     return iterator(temp);
 }
 
+// 使用固定值在指定位置开始插入n个节点
 template <class T, class Alloc>
 void list<T, Alloc>::fill_insert(iterator position, size_type n,
                                  const value_type &val) {
     for (size_type i = n; i != 0; --i) position = insert(position, val);
 }
-
+//区间插 insert_dispatch是深拷贝
+// 插入函数是插入position之前 返回的是position
 template <class T, class Alloc>
 template <class InputIterator>
 void list<T, Alloc>::insert_dispatch(iterator position, InputIterator first,
@@ -300,7 +323,7 @@ inline void list<T, Alloc>::transfer(iterator position, iterator first,
         first.node->prev = temp;
     }
 }
-
+// 构造链表 使用一个指定值构造N个节点
 template <class T, class Alloc>
 list<T, Alloc>::list(size_type n, const value_type &val) {
     empety_initialized();
